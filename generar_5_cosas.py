@@ -99,12 +99,17 @@ USE:
 ESTRUTURA – 3 CLIPS:
 clip_1: alerta direto
 clip_2: explicação do padrão
-clip_3: comando consciente + CTA
+clip_3: comando consciente + CTA (OBRIGATÓRIO: pedir para se inscrever no canal, ativar notificações)
 
 ALINHAMENTO 1:1 ES / EN.
 
 REGRAS:
 Frases curtas, tom calmo, sem emojis.
+O clip_3 SEMPRE termina com CTA pedindo inscrição e notificações.
+
+EXEMPLOS DE CTA:
+ES: "Suscríbete y activa la campanita para más contenido consciente"
+EN: "Subscribe and turn on notifications for more conscious content"
 
 SAÍDA JSON ESTRITA no formato exato:
 {{
@@ -117,8 +122,18 @@ SAÍDA JSON ESTRITA no formato exato:
 "clip_1": {{"segments": ["sentence1", "sentence2"]}},
 "clip_2": {{"segments": ["sentence1", "sentence2"]}},
 "clip_3": {{"segments": ["sentence1", "sentence2"]}}
+}},
+"image_prompts": {{
+"clip_1": "detailed visual description for Whisk AI",
+"clip_2": "detailed visual description for Whisk AI",
+"clip_3": "detailed visual description for Whisk AI"
 }}
 }}
+
+PROMPTS DE IMAGEM:
+Gere 3 prompts visuais (em inglês) que capturem a EMOÇÃO e CONTEXTO de cada clip.
+Use descrições detalhadas, cinematográficas, com iluminação e mood específicos.
+Exemplo: "A person sitting alone in a dark room, looking at phone with worried expression, cinematic lighting, melancholic atmosphere, shallow depth of field"
 '''
     
 
@@ -188,10 +203,28 @@ def seleccionar_videos(duracion_objetivo):
     return selected
 
 
-def crear_video(audio_path, timestamp, idioma, duracion_audio):
-    videos = seleccionar_videos(duracion_audio + 1.0)
-    if not videos:
-        return None
+def crear_video(audio_path, timestamp, idioma, duracion_audio, video_sequence=None):
+    """
+    Cria vídeo usando sequência definida ou seleção aleatória
+    video_sequence: dict com {"clip_1": [video1, video2], "clip_2": [...], "clip_3": [...]}
+    """
+    if video_sequence:
+        # Usa sequência ordenada manualmente
+        videos = []
+        for clip in ["clip_1", "clip_2", "clip_3"]:
+            for video_name in video_sequence[clip]:
+                video_path = os.path.join(LIBRARY_DIR, video_name)
+                if os.path.exists(video_path):
+                    videos.append(video_path)
+        
+        if not videos:
+            print("⚠️ Nenhum vídeo válido na sequência")
+            return None
+    else:
+        # Seleção aleatória (modo antigo)
+        videos = seleccionar_videos(duracion_audio + 1.0)
+        if not videos:
+            return None
 
     list_file = os.path.join(TEMP_DIR, f"concat_{timestamp}_{idioma}.txt")
     with open(list_file, "w") as f:
@@ -217,39 +250,66 @@ def crear_video(audio_path, timestamp, idioma, duracion_audio):
     return output_path
 
 
-def main():
-    print("🎬 GENERADOR DE SHORTS – NARCISISMO & RELAÇÕES TÓXICAS")
-    print("=" * 60)
-
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+def generar_solo_guion():
+    """
+    STEP 1: Gera apenas o roteiro sem criar vídeo
+    Retorna o guion JSON para preview
+    """
+    print("📝 Gerando roteiro...")
     client = genai.Client(api_key=GEMINI_API_KEY)
-
     guion = generar_guion(client)
-    if not guion:
-        print("❌ Falha ao gerar roteiro")
-        return
+    return guion
 
+
+def crear_video_desde_guion(guion, timestamp=None, video_sequence=None):
+    """
+    STEP 2: Cria vídeos a partir de um roteiro já aprovado
+    video_sequence: dict com sequência de vídeos por clip
+    Exemplo: {"clip_1": ["video1.mp4", "video2.mp4"], ...}
+    """
+    if timestamp is None:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    print("🎬 Criando vídeos a partir do roteiro aprovado...")
+    
     try:
         # ESPANHOL
         text_es = segments_to_text(guion["short_es"])
         tts_es = TTSEngine(voice="carmelo")
         audio_es = tts_es.generate_speech(text_es, f"audio_ES_{timestamp}")
         dur_es = get_audio_duration(audio_es)
-        crear_video(audio_es, timestamp, "ES", dur_es)
+        crear_video(audio_es, timestamp, "ES", dur_es, video_sequence)
 
-        # INGLÊS (substitui PT-BR, sem mudar estrutura)
+        # INGLÊS
         text_en = segments_to_text(guion["short_en"])
         tts_en = TTSEngine(voice="adam")
         audio_en = tts_en.generate_speech(text_en, f"audio_EN_{timestamp}")
         dur_en = get_audio_duration(audio_en)
-        crear_video(audio_en, timestamp, "EN", dur_en)
+        crear_video(audio_en, timestamp, "EN", dur_en, video_sequence)
 
         print("✅ Shorts gerados com sucesso")
         print(f"📂 Output: {OUTPUT_DIR}")
+        return True
     except KeyError as e:
-        print(f"❌ Erro na estrutura do JSON retornado por Gemini: chave '{e}' não encontrada")
-        print("Resposta do Gemini:")
+        print(f"❌ Erro na estrutura do JSON: chave '{e}' não encontrada")
         print(json.dumps(guion, indent=2, ensure_ascii=False))
+        return False
+
+
+def main():
+    """
+    Modo automático completo (geração + criação de vídeo)
+    """
+    print("🎬 GENERADOR DE SHORTS – NARCISISMO & RELAÇÕES TÓXICAS")
+    print("=" * 60)
+
+    guion = generar_solo_guion()
+    if not guion:
+        print("❌ Falha ao gerar roteiro")
+        return
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    crear_video_desde_guion(guion, timestamp)
 
 
 def gerar_shorts():

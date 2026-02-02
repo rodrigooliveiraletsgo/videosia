@@ -10,12 +10,15 @@ from config import ELEVENLABS_API_KEY, TTS_CONFIG, TEMP_DIR, AVAILABLE_VOICES
 # Voces de Edge TTS (Microsoft) en español
 EDGE_VOICES = {
     "pablo": "es-ES-AlvaroNeural",      # Masculino español (profundo)
+    "carmelo": "es-ES-AlvaroNeural",    # Masculino español
     "elena": "es-ES-ElviraNeural",      # Femenino español
     "jorge": "es-MX-JorgeNeural",       # Masculino mexicano
     "dalia": "es-MX-DaliaNeural",       # Femenino mexicano
-    # Voces en inglés (si prefieres)
-    "adam_en": "en-US-GuyNeural",       # Masculino US (narrador)
-    "rachel_en": "en-US-JennyNeural",   # Femenino US
+    # Voces en inglés
+    "adam": "en-US-GuyNeural",          # Masculino US (narrador)
+    "adam_en": "en-US-GuyNeural",       # Alias
+    "rachel": "en-US-JennyNeural",      # Femenino US
+    "rachel_en": "en-US-JennyNeural",   # Alias
     # Voces en portugués brasileño
     "antonio_br": "pt-BR-AntonioNeural",  # Masculino brasileño (profundo, épico)
     "francisca_br": "pt-BR-FranciscaNeural",  # Femenino brasileño
@@ -46,8 +49,8 @@ class TTSEngine:
         
         if self.use_edge:
             # Mapear voz a Edge TTS
-            self.edge_voice = EDGE_VOICES.get(voice, EDGE_VOICES.get("pablo"))
-            print(f"🔊 Usando Edge TTS (voz: {self.edge_voice})")
+            self.edge_voice = EDGE_VOICES.get(voice, EDGE_VOICES.get("adam"))
+            print(f"🔊 Usando Edge TTS (voz: {voice} → {self.edge_voice})")
         else:
             self.voice_id = AVAILABLE_VOICES.get(voice, AVAILABLE_VOICES["adam"])
             self.headers = {
@@ -134,7 +137,7 @@ class TTSEngine:
         except requests.exceptions.HTTPError as e:
             print(f"⚠️ ElevenLabs falló, usando Edge TTS...")
             self.use_edge = True
-            self.edge_voice = EDGE_VOICES.get("pablo")
+            self.edge_voice = EDGE_VOICES.get(self.voice_name, EDGE_VOICES.get("adam"))
             return self._generate_with_edge(text, output_filename)
     
     def test_connection(self) -> bool:
