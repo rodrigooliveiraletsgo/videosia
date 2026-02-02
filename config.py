@@ -12,6 +12,19 @@ ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
 PEXELS_API_KEY = os.getenv("PEXELS_API_KEY", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
+# DEBUG: Verificar arquivo .env e variáveis
+print(f"📁 DEBUG - Arquivo .env existe: {os.path.exists('.env')}")
+print(f"📁 DEBUG - Diretório atual: {os.getcwd()}")
+if os.path.exists('.env'):
+    with open('.env', 'r') as f:
+        env_content = f.read()
+        print(f"📁 DEBUG - Conteúdo .env (primeiras linhas):")
+        for line in env_content.split('\n')[:5]:
+            if 'GEMINI' in line:
+                print(f"     {line[:30]}...")
+print(f"🔑 DEBUG config.py - GEMINI_API_KEY: {GEMINI_API_KEY[:20]}...{GEMINI_API_KEY[-4:]}" if GEMINI_API_KEY else "❌ config.py - NENHUMA CHAVE")
+print(f"🔑 DEBUG config.py - Tamanho: {len(GEMINI_API_KEY) if GEMINI_API_KEY else 0} caracteres")
+
 # ==================== CONFIGURACIÓN DE VIDEO ====================
 # Formato REEL (vertical - Instagram/TikTok)
 VIDEO_CONFIG_REEL = {

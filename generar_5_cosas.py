@@ -22,6 +22,10 @@ from google import genai
 
 LIBRARY_DIR = os.path.join(ASSETS_DIR, "video_library")
 
+# DEBUG: Mostrar qual API key está sendo usada
+print(f"🔑 DEBUG - API Key carregada: {GEMINI_API_KEY[:20]}...{GEMINI_API_KEY[-4:]}" if GEMINI_API_KEY else "❌ NENHUMA CHAVE ENCONTRADA")
+print(f"🔑 DEBUG - Tamanho da chave: {len(GEMINI_API_KEY) if GEMINI_API_KEY else 0} caracteres")
+
 # ============================================================
 # CATEGORIAS – NARCISISMO & RELAÇÕES TÓXICAS
 # ============================================================
