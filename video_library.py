@@ -38,7 +38,7 @@ def list_library():
     
     total_duration = 0
     for i, v in enumerate(sorted(videos), 1):
-        from moviepy.editor import VideoFileClip
+        from moviepy import VideoFileClip
         clip = VideoFileClip(v)
         duration = clip.duration
         clip.close()
@@ -94,7 +94,7 @@ def add_to_library(count: int = 3):
 
 def create_short():
     """Crea un short de 30s con videos aleatorios de la biblioteca"""
-    from moviepy.editor import VideoFileClip, concatenate_videoclips
+    from moviepy import VideoFileClip, concatenate_videoclips
     
     videos = glob.glob(os.path.join(LIBRARY_DIR, "*.mp4"))
     

@@ -3,11 +3,11 @@ Compositor de Video con MoviePy
 Combina video de fondo, audio y subtítulos para crear el Reel final
 """
 import os
-from moviepy.editor import (
+from moviepy import (
     VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip,
     concatenate_videoclips, ColorClip, ImageClip
 )
-from moviepy.video.fx.all import fadein, fadeout, resize
+from moviepy.video.fx import FadeIn, FadeOut, Resize
 from config import VIDEO_CONFIG, SUBTITLE_CONFIG, OUTPUT_DIR, TEMP_DIR
 
 
@@ -282,7 +282,7 @@ class VideoComposer:
             clips.append(clip)
         
         # Combinar todas las imágenes
-        from moviepy.editor import CompositeVideoClip
+        from moviepy import CompositeVideoClip
         final = CompositeVideoClip(clips, size=(width, height))
         final = final.set_duration(duration)
         

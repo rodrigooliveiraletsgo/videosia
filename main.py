@@ -125,7 +125,7 @@ def generate_video(theme: str = "estoicismo", voice: str = "carmelo") -> str:
     audio_path = tts.generate_speech(narration, f"audio_{timestamp}")
     
     # Obtener duración del audio
-    from moviepy.editor import AudioFileClip, VideoFileClip, concatenate_videoclips
+    from moviepy import AudioFileClip, VideoFileClip, concatenate_videoclips
     import glob
     import random
     
@@ -266,7 +266,7 @@ def generate_youtube_video(theme: str = "estoicismo", voice: str = "carmelo") ->
     audio_path = tts.generate_speech(full_narration, f"youtube_audio_{timestamp}")
     
     # Obtener duración del audio
-    from moviepy.editor import AudioFileClip, VideoFileClip, concatenate_videoclips
+    from moviepy import AudioFileClip, VideoFileClip, concatenate_videoclips
     audio_clip = AudioFileClip(audio_path)
     audio_duration = audio_clip.duration + 2.0
     audio_clip.close()
