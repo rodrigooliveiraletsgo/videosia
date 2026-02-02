@@ -207,10 +207,11 @@ def seleccionar_videos(duracion_objetivo):
     return selected
 
 
-def crear_video(audio_path, timestamp, idioma, duracion_audio, video_sequence=None):
+def crear_video(audio_path, timestamp, idioma, duracion_audio, video_sequence=None, text_for_subtitles=None):
     """
     Cria vídeo usando sequência definida ou seleção aleatória
     video_sequence: dict com {"clip_1": [video1, video2], "clip_2": [...], "clip_3": [...]}
+    text_for_subtitles: texto completo para gerar legendas word-by-word
     """
     if video_sequence:
         # Usa sequência ordenada manualmente
@@ -243,11 +244,45 @@ def crear_video(audio_path, timestamp, idioma, duracion_audio, video_sequence=No
         "-r", "30", "-c:v", "libx264", "-preset", "fast", "-an", temp_video
     ], capture_output=True)
 
-    output_path = os.path.join(OUTPUT_DIR, f"short_{idioma}_{timestamp}.mp4")
-    subprocess.run([
-        "ffmpeg", "-y", "-i", temp_video, "-i", audio_path,
-        "-c:v", "copy", "-c:a", "aac", "-shortest", output_path
-    ], capture_output=True)
+    # Se há texto para legendas, usar MoviePy para adicionar
+    if text_for_subtitles:
+        from moviepy.editor import VideoFileClip, AudioFileClip
+        from modules.subtitles import add_subtitles_to_video
+        
+        print(f"🎬 Adicionando legendas word-by-word...")
+        
+        # Carregar vídeo e áudio
+        video_clip = VideoFileClip(temp_video)
+        audio_clip = AudioFileClip(audio_path)
+        
+        # Adicionar legendas
+        video_with_subs = add_subtitles_to_video(video_clip, text_for_subtitles, duracion_audio)
+        
+        # Adicionar áudio
+        final_video = video_with_subs.set_audio(audio_clip)
+        
+        # Exportar
+        output_path = os.path.join(OUTPUT_DIR, f"short_{idioma}_{timestamp}.mp4")
+        final_video.write_videofile(
+            output_path,
+            codec='libx264',
+            audio_codec='aac',
+            fps=30,
+            preset='fast',
+            threads=4
+        )
+        
+        # Limpar
+        video_clip.close()
+        audio_clip.close()
+        final_video.close()
+    else:
+        # Modo antigo sem legendas (FFmpeg direto)
+        output_path = os.path.join(OUTPUT_DIR, f"short_{idioma}_{timestamp}.mp4")
+        subprocess.run([
+            "ffmpeg", "-y", "-i", temp_video, "-i", audio_path,
+            "-c:v", "copy", "-c:a", "aac", "-shortest", output_path
+        ], capture_output=True)
 
     os.remove(list_file)
     os.remove(temp_video)
@@ -282,14 +317,14 @@ def crear_video_desde_guion(guion, timestamp=None, video_sequence=None):
         tts_es = TTSEngine(voice="carmelo")
         audio_es = tts_es.generate_speech(text_es, f"audio_ES_{timestamp}")
         dur_es = get_audio_duration(audio_es)
-        crear_video(audio_es, timestamp, "ES", dur_es, video_sequence)
+        crear_video(audio_es, timestamp, "ES", dur_es, video_sequence, text_for_subtitles=text_es)
 
         # INGLÊS
         text_en = segments_to_text(guion["short_en"])
         tts_en = TTSEngine(voice="adam")
         audio_en = tts_en.generate_speech(text_en, f"audio_EN_{timestamp}")
         dur_en = get_audio_duration(audio_en)
-        crear_video(audio_en, timestamp, "EN", dur_en, video_sequence)
+        crear_video(audio_en, timestamp, "EN", dur_en, video_sequence, text_for_subtitles=text_en)
 
         print("✅ Shorts gerados com sucesso")
         print(f"📂 Output: {OUTPUT_DIR}")
