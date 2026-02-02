@@ -1,10 +1,13 @@
 """
 Módulo de legendas word-by-word para vídeos verticais
 Estilo TikTok/Shorts com highlight em cada palavra
+Usa FFmpeg diretamente para evitar dependência do ImageMagick
+Usa Whisper para sincronização precisa com a voz
 """
 
-from moviepy.editor import TextClip, CompositeVideoClip
-from moviepy.video.tools.subtitles import SubtitlesClip
+import subprocess
+import os
+import json
 
 
 def split_into_words(text):
@@ -17,10 +20,50 @@ def split_into_words(text):
     return words
 
 
+def get_word_timestamps_from_audio(audio_path):
+    """
+    Usa Whisper para extrair timestamps precisos de cada palavra do áudio
+    Retorna lista de dicts com {word, start, end}
+    """
+    try:
+        import whisper
+        print("   🎤 Transcrevendo áudio com Whisper para timing preciso...")
+        
+        # Carregar modelo Whisper (tiny é rápido e suficiente para timing)
+        model = whisper.load_model("tiny")
+        
+        # Transcrever com word timestamps
+        result = model.transcribe(
+            audio_path,
+            word_timestamps=True,
+            language=None  # Auto-detect
+        )
+        
+        # Extrair palavras com timestamps
+        word_timings = []
+        for segment in result.get("segments", []):
+            for word_info in segment.get("words", []):
+                word_timings.append({
+                    'word': word_info['word'].strip(),
+                    'start': word_info['start'],
+                    'end': word_info['end']
+                })
+        
+        print(f"   ✅ {len(word_timings)} palavras com timestamps extraídas")
+        return word_timings
+        
+    except ImportError:
+        print("   ⚠️ Whisper não instalado, usando distribuição uniforme")
+        return None
+    except Exception as e:
+        print(f"   ⚠️ Erro ao usar Whisper: {e}, usando distribuição uniforme")
+        return None
+
+
 def calculate_word_timings(words, total_duration):
     """
     Calcula timestamps para cada palavra
-    Distribui o tempo total igualmente entre as palavras
+    Distribui o tempo total igualmente entre as palavras (fallback)
     """
     num_words = len(words)
     if num_words == 0:
@@ -42,91 +85,74 @@ def calculate_word_timings(words, total_duration):
     return timings
 
 
-def create_word_clip(word_data, video_size):
+def add_subtitles_with_ffmpeg(video_path, text, audio_duration, output_path, audio_path=None):
     """
-    Cria um TextClip para uma palavra individual
-    Estilo: fonte média, branca, bold, outline preto
+    Adiciona legendas word-by-word usando FFmpeg drawtext
+    Se audio_path fornecido, usa Whisper para timing preciso
     """
-    word = word_data['word']
-    start = word_data['start']
-    end = word_data['end']
-    duration = end - start
+    print("📝 Gerando legendas word-by-word com FFmpeg...")
     
-    # Configurações de estilo
-    fontsize = 55
-    color = 'white'
-    font = 'Impact'  # Fonte bold estilo TikTok (ou Arial-Bold)
+    # Tentar usar Whisper para timing preciso
+    word_timings = None
+    if audio_path:
+        word_timings = get_word_timestamps_from_audio(audio_path)
     
-    try:
-        txt_clip = TextClip(
-            word,
-            fontsize=fontsize,
-            color=color,
-            font=font,
-            stroke_color='black',
-            stroke_width=3,
-            method='caption',
-            size=(video_size[0] - 100, None)  # Largura com margem
-        ).set_position('center').set_start(start).set_duration(duration)
+    # Se Whisper falhar, usar distribuição uniforme
+    if not word_timings:
+        words = split_into_words(text)
+        print(f"   Total de palavras: {len(words)}")
+        word_timings = calculate_word_timings(words, audio_duration)
+    
+    if not word_timings:
+        print("   ⚠️ Nenhuma palavra para legendar")
+        subprocess.run(["cp", video_path, output_path])
+        return False
+    
+    # Criar filtro drawtext do FFmpeg
+    drawtext_filters = []
+    
+    for timing in word_timings:
+        word = timing['word'].replace("'", "\\'").replace(":", "\\:")  # Escapar caracteres especiais
+        start = timing['start']
+        end = timing['end']
         
-        return txt_clip
-    except Exception as e:
-        print(f"⚠️ Erro ao criar clip para '{word}': {e}")
-        # Fallback sem stroke
-        txt_clip = TextClip(
-            word,
-            fontsize=fontsize,
-            color=color,
-            font='Arial-Bold',
-            method='caption',
-            size=(video_size[0] - 100, None)
-        ).set_position('center').set_start(start).set_duration(duration)
-        
-        return txt_clip
-
-
-def add_subtitles_to_video(video_clip, text, audio_duration):
-    """
-    Adiciona legendas word-by-word ao vídeo
+        # drawtext com enable para mostrar apenas no período específico
+        filter_str = (
+            f"drawtext=text='{word}':"
+            f"fontfile=/System/Library/Fonts/Supplemental/Impact.ttf:"
+            f"fontsize=55:"
+            f"fontcolor=white:"
+            f"borderw=3:"
+            f"bordercolor=black:"
+            f"x=(w-text_w)/2:"  # Centro horizontal
+            f"y=(h-text_h)/2:"  # Centro vertical
+            f"enable='between(t,{start:.3f},{end:.3f})'"
+        )
+        drawtext_filters.append(filter_str)
     
-    Args:
-        video_clip: VideoClip do moviepy
-        text: Texto completo do áudio
-        audio_duration: Duração do áudio em segundos
+    # Concatenar todos os filtros com vírgula
+    full_filter = ",".join(drawtext_filters)
     
-    Returns:
-        CompositeVideoClip com legendas
-    """
-    print("📝 Gerando legendas word-by-word...")
+    # Comando FFmpeg
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", video_path,
+        "-vf", full_filter,
+        "-codec:a", "copy",
+        output_path
+    ]
     
-    # Dividir em palavras
-    words = split_into_words(text)
-    print(f"   Total de palavras: {len(words)}")
+    print(f"   Aplicando {len(word_timings)} legendas...")
+    result = subprocess.run(cmd, capture_output=True, text=True)
     
-    # Calcular timings
-    word_timings = calculate_word_timings(words, audio_duration)
+    if result.returncode != 0:
+        print(f"⚠️ Erro ao adicionar legendas: {result.stderr}")
+        # Se falhar, copiar vídeo sem legendas
+        subprocess.run(["cp", video_path, output_path])
+        return False
     
-    # Criar clips de texto
-    video_size = video_clip.size
-    text_clips = []
-    
-    for word_data in word_timings:
-        try:
-            clip = create_word_clip(word_data, video_size)
-            text_clips.append(clip)
-        except Exception as e:
-            print(f"⚠️ Erro ao processar palavra '{word_data['word']}': {e}")
-            continue
-    
-    if not text_clips:
-        print("⚠️ Nenhuma legenda criada, retornando vídeo original")
-        return video_clip
-    
-    # Compor vídeo + legendas
-    print(f"   Adicionando {len(text_clips)} legendas ao vídeo...")
-    final_video = CompositeVideoClip([video_clip] + text_clips)
-    
-    return final_video
+    print("   ✅ Legendas adicionadas com sucesso!")
+    return True
 
 
 def generate_srt(word_timings, output_path):

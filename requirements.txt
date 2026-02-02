@@ -5,3 +5,6 @@ elevenlabs>=1.0.0
 google-generativeai>=0.3.0
 Pillow>=10.0.0
 numpy>=1.24.0
+openai-whisper>=20231117
+edge-tts>=7.2.7
+Flask>=3.0.0
