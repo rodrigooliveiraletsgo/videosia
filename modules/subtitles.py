@@ -45,7 +45,7 @@ def calculate_word_timings(words, total_duration):
 def create_word_clip(word_data, video_size):
     """
     Cria um TextClip para uma palavra individual
-    Estilo: fonte grande, bold, outline branco, sombra
+    Estilo: fonte média, branca, bold, outline preto
     """
     word = word_data['word']
     start = word_data['start']
@@ -53,8 +53,8 @@ def create_word_clip(word_data, video_size):
     duration = end - start
     
     # Configurações de estilo
-    fontsize = 70
-    color = 'yellow'
+    fontsize = 55
+    color = 'white'
     font = 'Impact'  # Fonte bold estilo TikTok (ou Arial-Bold)
     
     try:
@@ -67,7 +67,7 @@ def create_word_clip(word_data, video_size):
             stroke_width=3,
             method='caption',
             size=(video_size[0] - 100, None)  # Largura com margem
-        ).set_position(('center', 200)).set_start(start).set_duration(duration)
+        ).set_position('center').set_start(start).set_duration(duration)
         
         return txt_clip
     except Exception as e:
@@ -80,7 +80,7 @@ def create_word_clip(word_data, video_size):
             font='Arial-Bold',
             method='caption',
             size=(video_size[0] - 100, None)
-        ).set_position(('center', 200)).set_start(start).set_duration(duration)
+        ).set_position('center').set_start(start).set_duration(duration)
         
         return txt_clip
 
