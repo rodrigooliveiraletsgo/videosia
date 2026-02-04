@@ -236,19 +236,27 @@ def index():
 
     {% if status.script_preview %}
     <div style="background: #fff3cd; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
-        <h2 style="margin-top: 0;">📝 Script Preview</h2>
+        <h2 style="margin-top: 0;">📝 Script Preview <button onclick="toggleEditMode()" id="editBtn" style="background: #2196F3; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-left: 10px;">✏️ Edit</button></h2>
         
+        <form method="POST" action="/update-script" id="scriptForm">
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
             <div style="background: white; padding: 15px; border-radius: 5px; border: 1px solid #ddd;">
                 <h3 style="color: #d32f2f; margin-top: 0;">🇪🇸 Spanish</h3>
                 {% for clip_name, clip_data in status.script_preview.short_es.items() %}
                     <div style="margin-bottom: 15px;">
                         <strong>{{ clip_name }}:</strong>
-                        <ul style="margin: 5px 0; padding-left: 20px;">
-                        {% for segment in clip_data.segments %}
-                            <li>{{ segment }}</li>
-                        {% endfor %}
-                        </ul>
+                        <div class="view-mode">
+                            <ul style="margin: 5px 0; padding-left: 20px;">
+                            {% for segment in clip_data.segments %}
+                                <li>{{ segment }}</li>
+                            {% endfor %}
+                            </ul>
+                        </div>
+                        <div class="edit-mode" style="display: none;">
+                            {% for segment in clip_data.segments %}
+                                <textarea name="es_{{ clip_name }}_{{ loop.index0 }}" style="width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;" rows="2">{{ segment }}</textarea>
+                            {% endfor %}
+                        </div>
                     </div>
                 {% endfor %}
             </div>
@@ -258,15 +266,27 @@ def index():
                 {% for clip_name, clip_data in status.script_preview.short_en.items() %}
                     <div style="margin-bottom: 15px;">
                         <strong>{{ clip_name }}:</strong>
-                        <ul style="margin: 5px 0; padding-left: 20px;">
-                        {% for segment in clip_data.segments %}
-                            <li>{{ segment }}</li>
-                        {% endfor %}
-                        </ul>
+                        <div class="view-mode">
+                            <ul style="margin: 5px 0; padding-left: 20px;">
+                            {% for segment in clip_data.segments %}
+                                <li>{{ segment }}</li>
+                            {% endfor %}
+                            </ul>
+                        </div>
+                        <div class="edit-mode" style="display: none;">
+                            {% for segment in clip_data.segments %}
+                                <textarea name="en_{{ clip_name }}_{{ loop.index0 }}" style="width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;" rows="2">{{ segment }}</textarea>
+                            {% endfor %}
+                        </div>
                     </div>
                 {% endfor %}
             </div>
         </div>
+        <div class="edit-mode" style="display: none;">
+            <button type="submit" style="background: #4caf50; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin-right: 10px;">💾 Save Changes</button>
+            <button type="button" onclick="toggleEditMode()" style="background: #f44336; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">❌ Cancel</button>
+        </div>
+        </form>
         
         {% if status.script_preview.image_prompts %}
         <div style="background: #e8f5e9; padding: 15px; border-radius: 5px; margin-bottom: 20px; border: 1px solid #4caf50;">
@@ -282,6 +302,20 @@ def index():
             {% endfor %}
         </div>
         <script>
+        function toggleEditMode() {
+            const viewModes = document.querySelectorAll('.view-mode');
+            const editModes = document.querySelectorAll('.edit-mode');
+            const editBtn = document.getElementById('editBtn');
+            
+            const isEditing = editModes[0].style.display !== 'none';
+            
+            viewModes.forEach(el => el.style.display = isEditing ? 'block' : 'none');
+            editModes.forEach(el => el.style.display = isEditing ? 'none' : 'block');
+            
+            editBtn.textContent = isEditing ? '✏️ Edit' : '👁️ View';
+            editBtn.style.background = isEditing ? '#2196F3' : '#ff9800';
+        }
+        
         function copyToClipboard(elementId) {
             const element = document.getElementById(elementId);
             const text = element.innerText || element.textContent;
@@ -492,6 +526,51 @@ def index():
 </html>
 """, videos_gerados=videos_gerados, videos_biblioteca=videos_biblioteca, status=STATUS)
 
+
+# ========================
+# UPDATE SCRIPT
+# ========================
+@app.route("/update-script", methods=["POST"])
+def update_script():
+    """Atualiza o script com as edições do usuário"""
+    if not STATUS["script_preview"]:
+        return redirect("/")
+    
+    try:
+        # Atualizar segmentos em espanhol
+        for clip_name in ['clip_1', 'clip_2', 'clip_3']:
+            segments_es = []
+            idx = 0
+            while True:
+                field_name = f"es_{clip_name}_{idx}"
+                if field_name in request.form:
+                    segments_es.append(request.form[field_name].strip())
+                    idx += 1
+                else:
+                    break
+            if segments_es:
+                STATUS["script_preview"]["short_es"][clip_name]["segments"] = segments_es
+        
+        # Atualizar segmentos em inglês
+        for clip_name in ['clip_1', 'clip_2', 'clip_3']:
+            segments_en = []
+            idx = 0
+            while True:
+                field_name = f"en_{clip_name}_{idx}"
+                if field_name in request.form:
+                    segments_en.append(request.form[field_name].strip())
+                    idx += 1
+                else:
+                    break
+            if segments_en:
+                STATUS["script_preview"]["short_en"][clip_name]["segments"] = segments_en
+        
+        STATUS["message"] = "✅ Script updated successfully"
+        return redirect("/")
+    except Exception as e:
+        print(f"❌ Error updating script: {e}")
+        STATUS["message"] = f"❌ Error updating script: {str(e)}"
+        return redirect("/")
 
 # ========================
 # GENERATE SCRIPT (STEP 1)
